@@ -23,7 +23,7 @@ class MessageWithSources(MessageBase):
     sources: Optional[List[Source]] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Updated from orm_mode in Pydantic v2
 
 
 class Message(MessageBase):
@@ -31,7 +31,7 @@ class Message(MessageBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Updated from orm_mode in Pydantic v2
 
 
 class ConversationBase(BaseModel):
@@ -49,7 +49,7 @@ class Conversation(ConversationBase):
     messages: List[Message] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Updated from orm_mode in Pydantic v2
 
 
 class QueryRequest(BaseModel):

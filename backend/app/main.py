@@ -1,9 +1,14 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import SQLAlchemyError
 
+# Load environment variables directly before other imports
+from app.env_setup import setup_env
+setup_env()
+
+# Now import the rest of the modules
 from app.api import auth, users, queries
 from app.core.config import settings
 from app.db.models import Base
@@ -17,7 +22,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=["*"],  # For development; use settings.BACKEND_CORS_ORIGINS in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,8 +33,10 @@ try:
     engine = create_engine(settings.SQLALCHEMY_DATABASE_URI)
     Base.metadata.create_all(bind=engine)
     print("Database tables created successfully")
-except Exception as e:
+except SQLAlchemyError as e:
     print(f"Error creating database tables: {e}")
+except Exception as e:
+    print(f"Unexpected error creating database tables: {e}")
 
 # Include API routers
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["authentication"])
@@ -44,7 +51,13 @@ def root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    """Health check endpoint for the API"""
+    return {
+        "status": "ok",
+        "openai_key_available": bool(os.environ.get("OPENAI_API_KEY")),
+        "database_uri": settings.SQLALCHEMY_DATABASE_URI is not None,
+        "neo4j_uri": settings.NEO4J_URI is not None
+    }
 
 
 if __name__ == "__main__":
