@@ -1,0 +1,51 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Next.js
+.next/
+out/
+
+# Production
+build/
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Env files
+.env
+.env.*    # Covers things like .env.local, .env.production, etc.
+
+# Neo4j related (if any dump or temp files)
+*.dump
+*.db
+*.rdb
+*.log
+import/
+data/
+conf/
+
+# IDE settings
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Optional: if you're deploying or using Docker
+docker-compose.override.yml
+*.dockerfile
+
+# Optional: Coverage
+coverage/
+
+# Optional: TypeScript
+*.tsbuildinfo
