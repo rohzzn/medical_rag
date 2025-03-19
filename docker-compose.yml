@@ -71,7 +71,6 @@ services:
     networks:
       - app-network
     restart: unless-stopped
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     
   # Next.js frontend
   frontend:
@@ -87,6 +86,7 @@ services:
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-nextauth-secret-key}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+      - SERVER_API_URL=http://backend:8000/api/v1  # Use Docker service name for server-side
     ports:
       - "3000:3000"
     depends_on:
@@ -95,6 +95,8 @@ services:
       - app-network
     restart: unless-stopped
     command: npm run dev
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Add host.docker.internal for easier debugging
 
 networks:
   app-network:

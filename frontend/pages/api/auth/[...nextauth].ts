@@ -1,30 +1,9 @@
 import NextAuth, { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { JWT } from 'next-auth/jwt';
-
-// Define custom type declarations to extend NextAuth types
-declare module 'next-auth' {
-  interface User {
-    id: string;
-    email: string;
-    name?: string;
-    accessToken: string;
-  }
-
-  interface Session {
-    accessToken: string;
-    user: User;
-  }
-}
-
-declare module 'next-auth/jwt' {
-  interface JWT {
-    accessToken: string;
-    id: string;
-  }
-}
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+// For server-side API calls when running in Docker, we need to use the service name
+const SERVER_API_URL = process.env.SERVER_API_URL || 'http://backend:8000/api/v1';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -41,7 +20,8 @@ export const authOptions: NextAuthOptions = {
         
         try {
           // Get token from API
-          const response = await fetch(`${API_BASE_URL}/auth/login`, {
+          console.log(`Sending auth request to ${SERVER_API_URL}/auth/login`);
+          const response = await fetch(`${SERVER_API_URL}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
@@ -51,19 +31,22 @@ export const authOptions: NextAuthOptions = {
           });
           
           if (!response.ok) {
+            console.error(`Auth error: ${response.status} ${response.statusText}`);
             return null;
           }
           
           const tokenData = await response.json();
           
           // Get user data
-          const userResponse = await fetch(`${API_BASE_URL}/users/me`, {
+          console.log(`Getting user data from ${SERVER_API_URL}/users/me`);
+          const userResponse = await fetch(`${SERVER_API_URL}/users/me`, {
             headers: {
               'Authorization': `Bearer ${tokenData.access_token}`,
             },
           });
           
           if (!userResponse.ok) {
+            console.error(`User data error: ${userResponse.status} ${userResponse.statusText}`);
             return null;
           }
           
@@ -107,6 +90,7 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: true, // Enable debug mode for troubleshooting
 };
 
 export default NextAuth(authOptions);

@@ -1,7 +1,10 @@
 import { getSession } from 'next-auth/react';
 
-// API base URL
+// API base URL for client-side requests
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+// Determine if we're running on the server
+const isServer = typeof window === 'undefined';
 
 /**
  * Generic fetch function with authorization
@@ -22,7 +25,10 @@ async function fetchWithAuth(
     ...options.headers,
   };
   
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  // Use the appropriate base URL depending on where we're running
+  const baseUrl = API_BASE_URL;
+  
+  const response = await fetch(`${baseUrl}${endpoint}`, {
     ...options,
     headers,
   });

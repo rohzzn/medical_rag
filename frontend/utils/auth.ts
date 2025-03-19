@@ -17,6 +17,7 @@ export interface LoginFormData {
  * Register a new user
  */
 export async function registerUser(userData: RegisterFormData): Promise<any> {
+  console.log(`Registering user with API at ${API_BASE_URL}/auth/register`);
   const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: 'POST',
     headers: {
@@ -37,6 +38,7 @@ export async function registerUser(userData: RegisterFormData): Promise<any> {
  * Login user using NextAuth
  */
 export async function loginUser(credentials: LoginFormData): Promise<boolean> {
+  console.log(`Logging in user with NextAuth`);
   const result = await signIn('credentials', {
     redirect: false,
     email: credentials.email,
@@ -44,6 +46,7 @@ export async function loginUser(credentials: LoginFormData): Promise<boolean> {
   });
   
   if (result?.error) {
+    console.error(`Login error: ${result.error}`);
     throw new Error(result.error);
   }
   
