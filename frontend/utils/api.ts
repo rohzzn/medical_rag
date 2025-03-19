@@ -3,9 +3,6 @@ import { getSession } from 'next-auth/react';
 // API base URL for client-side requests
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-// Determine if we're running on the server
-const isServer = typeof window === 'undefined';
-
 /**
  * Generic fetch function with authorization
  */
@@ -13,11 +10,16 @@ async function fetchWithAuth(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<any> {
+  console.log(`Making API request to: ${API_BASE_URL}${endpoint}`);
+  
   const session = await getSession();
   
   if (!session?.accessToken) {
+    console.error('No access token available');
     throw new Error('No access token available');
   }
+  
+  console.log(`Using token: ${session.accessToken.slice(0, 10)}...`);
   
   const headers = {
     'Content-Type': 'application/json',
@@ -25,20 +27,27 @@ async function fetchWithAuth(
     ...options.headers,
   };
   
-  // Use the appropriate base URL depending on where we're running
-  const baseUrl = API_BASE_URL;
-  
-  const response = await fetch(`${baseUrl}${endpoint}`, {
-    ...options,
-    headers,
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || `API request failed with status ${response.status}`);
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+    
+    console.log(`Response status: ${response.status}`);
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      console.error(`API error: ${JSON.stringify(error)}`);
+      throw new Error(error.detail || `API request failed with status ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log(`Response data: ${JSON.stringify(data).slice(0, 200)}...`);
+    return data;
+  } catch (error) {
+    console.error(`Fetch error: ${error}`);
+    throw error;
   }
-  
-  return response.json();
 }
 
 /**

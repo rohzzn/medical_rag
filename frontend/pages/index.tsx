@@ -1,10 +1,19 @@
 import { GetServerSideProps } from 'next';
 import { getSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
+import { useState } from 'react';
 import Layout from '../components/Layout';
 
 export default function Home() {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleStartChatting = () => {
+    setIsLoading(true);
+    console.log("Starting chat...");
+    // Use direct navigation instead of router.push for more reliability
+    window.location.href = '/chat';
+  };
 
   return (
     <Layout title="Home | Medical RAG App">
@@ -16,10 +25,11 @@ export default function Home() {
           Query our medical knowledge graph to get insights from research papers and medical literature.
         </p>
         <button 
-          onClick={() => router.push('/chat')}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg"
+          onClick={handleStartChatting}
+          disabled={isLoading}
+          className={`bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
         >
-          Start Chatting
+          {isLoading ? 'Loading...' : 'Start Chatting'}
         </button>
       </div>
     </Layout>

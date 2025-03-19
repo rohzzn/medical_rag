@@ -4,24 +4,28 @@ from app.core.config import settings
 
 def get_embedder():
     """
-    Create and return an embeddings model instance.
+    Create and return an embeddings model instance exactly as in the Jupyter notebook.
     """
-    # First try to get from environment directly
-    api_key = os.environ.get("OPENAI_API_KEY")
-    
-    # If not found in environment, try settings
-    if not api_key and hasattr(settings, "OPENAI_API_KEY"):
-        print(f"Getting API key from settings: {settings.OPENAI_API_KEY[:5]}...")
-        api_key = settings.OPENAI_API_KEY
-    
-    # If we have an API key, set it in environment
-    if api_key:
-        print(f"OpenAI API key found (starts with: {api_key[:4]}...)")
-        os.environ["OPENAI_API_KEY"] = api_key
+    # Make sure the OpenAI API key is set
+    if settings.OPENAI_API_KEY:
+        # Show first and last few characters of the key for debugging
+        masked_key = settings.OPENAI_API_KEY[:4] + "..." + settings.OPENAI_API_KEY[-4:] if len(settings.OPENAI_API_KEY) > 8 else "****"
+        print(f"Using OpenAI API key: {masked_key}")
+        
+        # Set the environment variable
+        os.environ["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
+    elif "OPENAI_API_KEY" in os.environ:
+        # Show first and last few characters of the key for debugging
+        masked_key = os.environ["OPENAI_API_KEY"][:4] + "..." + os.environ["OPENAI_API_KEY"][-4:] if len(os.environ["OPENAI_API_KEY"]) > 8 else "****"
+        print(f"Using OpenAI API key from environment: {masked_key}")
     else:
-        print("WARNING: No OpenAI API key found in environment or settings")
-        raise ValueError("OPENAI_API_KEY not found in environment variables or settings")
+        raise ValueError("OPENAI_API_KEY not found in settings or environment")
     
-    # Create the embedder
-    embedder = OpenAIEmbeddings()
-    return embedder
+    try:
+        # Create the embedder - identical to notebook
+        embedder = OpenAIEmbeddings()
+        print("OpenAI embeddings created successfully")
+        return embedder
+    except Exception as e:
+        print(f"Error creating OpenAI embeddings: {e}")
+        raise
