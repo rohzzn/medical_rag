@@ -1,5 +1,6 @@
 import os
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -24,19 +25,14 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = Field(default=os.environ.get("POSTGRES_USER", "postgres"))
     POSTGRES_PASSWORD: str = Field(default=os.environ.get("POSTGRES_PASSWORD", "postgres"))
     POSTGRES_DB: str = Field(default=os.environ.get("POSTGRES_DB", "app"))
-    SQLALCHEMY_DATABASE_URI: str = None
-    
-    # OpenAI settings
-    OPENAI_API_KEY: str = Field(default=os.environ.get("OPENAI_API_KEY", ""))
-    LLM_MODEL: str = Field(default=os.environ.get("LLM_MODEL", "gpt-4o"))
+    SQLALCHEMY_DATABASE_URI: str = ""  # We'll set this in the model_config
     
     class Config:
         case_sensitive = True
         env_file = ".env"
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Construct DB URI
+    def model_post_init(self, __context):
+        # Set the database URI after initialization
         self.SQLALCHEMY_DATABASE_URI = f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
 
 

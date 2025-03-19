@@ -24,8 +24,12 @@ app.add_middleware(
 )
 
 # Create database tables
-engine = create_engine(settings.SQLALCHEMY_DATABASE_URI)
-Base.metadata.create_all(bind=engine)
+try:
+    engine = create_engine(settings.SQLALCHEMY_DATABASE_URI)
+    Base.metadata.create_all(bind=engine)
+    print("Database tables created successfully")
+except Exception as e:
+    print(f"Error creating database tables: {e}")
 
 # Include API routers
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["authentication"])
@@ -36,6 +40,11 @@ app.include_router(queries.router, prefix=f"{settings.API_V1_STR}/queries", tags
 @app.get("/")
 def root():
     return {"message": "Welcome to the Medical RAG API"}
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 
 if __name__ == "__main__":
