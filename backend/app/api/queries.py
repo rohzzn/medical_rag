@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 
-from app.core.security import get_current_user
+from app.api.auth import get_db_user
 from app.db.session import get_db
 from app.db import crud, models
 from app.schemas.query import (
@@ -25,7 +25,7 @@ def get_all_conversations(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_db_user)
 ):
     """Get all conversations for the current user."""
     conversations = crud.get_conversations(db, user_id=current_user.id, skip=skip, limit=limit)
@@ -36,7 +36,7 @@ def get_all_conversations(
 def create_new_conversation(
     conversation: ConversationCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_db_user)
 ):
     """Create a new conversation."""
     return crud.create_conversation(db, user_id=current_user.id, title=conversation.title)
@@ -46,7 +46,7 @@ def create_new_conversation(
 def get_conversation_with_messages(
     conversation_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_db_user)
 ):
     """Get a conversation with all its messages."""
     conversation = crud.get_conversation(db, conversation_id=conversation_id)
@@ -61,7 +61,7 @@ def get_conversation_with_messages(
 async def process_query(
     query_request: QueryRequest,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_db_user)
 ):
     """Process a query and return the answer with sources."""
     # Get or create a conversation
@@ -117,7 +117,7 @@ async def process_query(
 def get_messages_for_conversation(
     conversation_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_db_user)
 ):
     """Get all messages for a conversation."""
     # Check if conversation exists and belongs to user

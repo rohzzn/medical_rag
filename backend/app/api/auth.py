@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import create_access_token
+from app.core.security import create_access_token, get_current_user
 from app.db.session import get_db
 from app.db import crud
 from app.schemas.user import User, UserCreate, Token
@@ -40,3 +40,14 @@ def login(
         user.id, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+# Custom dependency to get actual user from database
+def get_db_user(
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user = crud.get_user(db, user_id=int(user_id))
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
