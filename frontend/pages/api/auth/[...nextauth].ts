@@ -1,5 +1,28 @@
 import NextAuth, { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import { JWT } from 'next-auth/jwt';
+
+// Define custom type declarations to extend NextAuth types
+declare module 'next-auth' {
+  interface User {
+    id: string;
+    email: string;
+    name?: string;
+    accessToken: string;
+  }
+
+  interface Session {
+    accessToken: string;
+    user: User;
+  }
+}
+
+declare module 'next-auth/jwt' {
+  interface JWT {
+    accessToken: string;
+    id: string;
+  }
+}
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
