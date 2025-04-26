@@ -15,6 +15,9 @@ class MessageCreate(MessageBase):
 class Source(BaseModel):
     source_path: str
     source_name: str
+    paper_id: Optional[str] = None
+    paper_url: Optional[str] = None
+    content: Optional[str] = None
 
 
 class MessageWithSources(MessageBase):

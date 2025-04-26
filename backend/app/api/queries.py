@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
+import os
 
 from app.api.auth import get_db_user
 from app.db.session import get_db
@@ -61,9 +62,17 @@ def get_conversation_with_messages(
 async def process_query(
     query_request: QueryRequest,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_db_user)
+    current_user: models.User = Depends(get_db_user),
+    x_retriever_type: Optional[str] = Header(None, alias="retriever-type")
 ):
     """Process a query and return the answer with sources."""
+    # Get the retriever type from header or environment
+    retriever_type = x_retriever_type or os.getenv("RETRIEVER_TYPE", "hybrid")
+    
+    # Validate retriever type
+    if retriever_type not in ["hybrid", "vector_cypher", "vector"]:
+        retriever_type = "hybrid"  # Default to hybrid if invalid
+    
     # Get or create a conversation
     conversation_id = query_request.conversation_id
     if not conversation_id:
@@ -93,8 +102,12 @@ async def process_query(
     # Get conversation history
     messages = crud.get_messages(db, conversation_id=conversation_id)
     
-    # Process query with RAG pipeline
-    result = rag_pipeline.search(query_request.query, messages)
+    # Process query with RAG pipeline, passing the retriever type
+    result = rag_pipeline.search(
+        query_request.query, 
+        messages,
+        retriever_type=retriever_type
+    )
     
     # Store the assistant response with sources
     sources_data = [{"source_path": source.source_path, "source_name": source.source_name} for source in result["sources"]]

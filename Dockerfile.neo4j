@@ -1,0 +1,23 @@
+FROM neo4j:5-enterprise
+
+# Install necessary tools
+RUN apt-get update && apt-get install -y curl
+
+# Copy the neo4j dump file
+COPY neo4j_dump /import/neo4j_dump
+
+# Copy configuration file
+COPY scripts/neo4j.conf /var/lib/neo4j/conf/neo4j.conf
+
+# Copy initialization script
+COPY scripts/init-neo4j.sh /init-neo4j.sh
+RUN chmod +x /init-neo4j.sh
+
+# Set environment variables
+ENV NEO4J_AUTH=neo4j/password26
+ENV NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
+
+EXPOSE 7474 7687 
+
+# Use our script as the entrypoint
+ENTRYPOINT ["/init-neo4j.sh"] 

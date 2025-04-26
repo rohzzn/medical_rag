@@ -1,5 +1,32 @@
 import NextAuth, { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import { JWT } from 'next-auth/jwt';
+
+// Extend the built-in types
+declare module "next-auth" {
+  interface User {
+    id: string;
+    email: string;
+    name?: string;
+    accessToken: string;
+  }
+  
+  interface Session {
+    accessToken: string;
+    user: {
+      id: string;
+      email: string;
+      name?: string;
+    }
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    accessToken: string;
+    id: string;
+  }
+}
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 // For server-side API calls when running in Docker, we need to use the service name

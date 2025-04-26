@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Source } from '../utils/api';
 
 interface SourcesListProps {
@@ -6,29 +6,76 @@ interface SourcesListProps {
 }
 
 const SourcesList: React.FC<SourcesListProps> = ({ sources }) => {
+  const [expandedSource, setExpandedSource] = useState<string | null>(null);
+
   if (!sources || sources.length === 0) {
     return null;
   }
   
-  // Get unique sources
-  const uniqueSources = sources.reduce((acc, source) => {
+  // Get unique sources (show at most 5)
+  const uniqueSources = sources.slice(0, 5).reduce((acc, source) => {
     if (!acc.some(s => s.source_name === source.source_name)) {
       acc.push(source);
     }
     return acc;
   }, [] as Source[]);
   
+  const toggleSourceExpand = (sourcePath: string) => {
+    if (expandedSource === sourcePath) {
+      setExpandedSource(null);
+    } else {
+      setExpandedSource(sourcePath);
+    }
+  };
+  
   return (
-    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-      <h3 className="font-medium text-gray-800 mb-2">Sources</h3>
+    <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 mb-4">
+      <h3 className="font-medium text-gray-800 mb-2">Sources ({uniqueSources.length})</h3>
       <ul className="divide-y divide-gray-200">
         {uniqueSources.map((source, index) => (
-          <li key={index} className="py-2">
-            <div className="flex items-start">
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-900">{source.source_name}</p>
-                <p className="text-xs text-gray-500 truncate">{source.source_path}</p>
+          <li key={index} className="py-3">
+            <div className="flex flex-col">
+              <div className="flex items-start mb-1">
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className="h-5 w-5 text-indigo-500 mr-2 flex-shrink-0 mt-0.5" 
+                  viewBox="0 0 20 20" 
+                  fill="currentColor"
+                >
+                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1">
+                  <a 
+                    href={source.paper_url || `https://scholar.google.com/scholar?q=${encodeURIComponent(source.source_name)}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+                  >
+                    {source.source_name}
+                  </a>
+                  <p className="text-xs text-gray-500 truncate">{source.paper_id || source.source_path.split('/').pop()}</p>
+                </div>
+                <button 
+                  onClick={() => toggleSourceExpand(source.source_path)}
+                  className="ml-2 text-gray-400 hover:text-gray-600"
+                >
+                  {expandedSource === source.source_path ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
               </div>
+              
+              {expandedSource === source.source_path && source.content && (
+                <div className="mt-2 ml-7 text-sm text-gray-700 bg-gray-50 p-3 rounded-md border border-gray-200 overflow-auto max-h-60">
+                  <pre className="whitespace-pre-wrap font-sans">{source.content}</pre>
+                </div>
+              )}
             </div>
           </li>
         ))}

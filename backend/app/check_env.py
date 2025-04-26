@@ -1,6 +1,37 @@
 import os
 import sys
 
+def check_required_env_vars():
+    """
+    Check if important environment variables are set.
+    If critical variables are missing, log a warning but continue.
+    """
+    # Check OpenAI API key
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    if openai_key:
+        masked_key = openai_key[:4] + "..." + openai_key[-4:] if len(openai_key) > 8 else "****"
+        print(f"✅ OPENAI_API_KEY is set: {masked_key}")
+    else:
+        print("❌ OPENAI_API_KEY is NOT set")
+        
+    # Check Neo4j connection info
+    if os.environ.get("NEO4J_URI"):
+        print(f"✅ NEO4J_URI is set")
+    else:
+        print(f"❌ NEO4J_URI is NOT set")
+        
+    if os.environ.get("NEO4J_USERNAME"):
+        print(f"✅ NEO4J_USERNAME is set")
+    else:
+        print(f"❌ NEO4J_USERNAME is NOT set")
+        
+    if os.environ.get("NEO4J_PASSWORD"):
+        print(f"✅ NEO4J_PASSWORD is set")
+    else:
+        print(f"❌ NEO4J_PASSWORD is NOT set")
+    
+    # No hard failures - we'll just log warnings
+
 def check_environment():
     """
     Check if important environment variables are set.

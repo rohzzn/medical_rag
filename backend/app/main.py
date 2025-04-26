@@ -1,9 +1,11 @@
 import os
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
+import logging
+from sqlalchemy.orm import Session
 
 # Load environment variables directly before other imports
 from app.env_setup import setup_env
@@ -13,6 +15,17 @@ setup_env()
 from app.api import auth, users, queries
 from app.core.config import settings
 from app.db.models import Base
+from app.db import models, crud
+from app.db.session import engine, get_db
+from app.core import security
+from app.schemas.user import User
+from app.check_env import check_required_env_vars
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Check required environment variables
+check_required_env_vars()
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -32,10 +45,10 @@ app.add_middleware(
 # Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    print(f"Global exception: {str(exc)}")
+    logger.error(f"Unhandled exception: {exc}")
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Internal server error: {str(exc)}"}
+        content={"detail": "An unexpected error occurred. Please try again later."},
     )
 
 # Create database tables
@@ -53,11 +66,25 @@ app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["aut
 app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
 app.include_router(queries.router, prefix=f"{settings.API_V1_STR}/queries", tags=["queries"])
 
+# Retriever type endpoint - new!
+@app.get("/api/v1/retriever-type")
+async def get_retriever_type():
+    retriever_type = os.getenv("RETRIEVER_TYPE", "hybrid")
+    return {"retriever_type": retriever_type}
+
+@app.post("/api/v1/retriever-type")
+async def set_retriever_type(retriever_type: str = Header(...)):
+    if retriever_type not in ["hybrid", "vector_cypher", "vector"]:
+        raise HTTPException(status_code=400, detail="Invalid retriever type")
+    
+    # In production, this would update environment variables or a database setting
+    # For now, we'll just return the new value
+    os.environ["RETRIEVER_TYPE"] = retriever_type  # Actually set it in the environment
+    return {"retriever_type": retriever_type, "status": "updated"}
 
 @app.get("/")
 def root():
     return {"message": "Welcome to the Medical RAG API"}
-
 
 @app.get("/health")
 def health_check():
@@ -69,6 +96,9 @@ def health_check():
         "neo4j_uri": settings.NEO4J_URI is not None
     }
 
+@app.get("/api/v1/me", response_model=User)
+def read_users_me(current_user: User = Depends(auth.get_current_user)):
+    return current_user
 
 if __name__ == "__main__":
     import uvicorn

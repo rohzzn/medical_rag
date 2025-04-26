@@ -8,7 +8,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/a
  */
 async function fetchWithAuth(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  customHeaders: Record<string, string> = {}
 ): Promise<any> {
   console.log(`Making API request to: ${API_BASE_URL}${endpoint}`);
   
@@ -24,6 +25,7 @@ async function fetchWithAuth(
   const headers = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${session.accessToken}`,
+    ...customHeaders,
     ...options.headers,
   };
   
@@ -79,11 +81,22 @@ export const conversationApi = {
  * Query API
  */
 export const queryApi = {
-  submitQuery: (query: string, conversationId?: number) => 
+  submitQuery: (query: string, conversationId?: number, retrieverType?: string) => 
     fetchWithAuth('/queries/query', {
       method: 'POST',
       body: JSON.stringify({ query, conversation_id: conversationId }),
-    }),
+    }, 
+    retrieverType ? { 'retriever-type': retrieverType } : {}),
+};
+
+/**
+ * Retriever API
+ */
+export const retrieverApi = {
+  getRetrieverType: () => fetchWithAuth('/retriever-type'),
+  setRetrieverType: (retrieverType: string) => fetchWithAuth('/retriever-type', {
+    method: 'POST',
+  }, { 'retriever-type': retrieverType }),
 };
 
 /**
@@ -107,6 +120,9 @@ export interface Message {
 export interface Source {
   source_path: string;
   source_name: string;
+  paper_id?: string;
+  paper_url?: string;
+  content?: string;
 }
 
 export interface Conversation {

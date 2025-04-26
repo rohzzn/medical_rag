@@ -20,26 +20,35 @@ services:
 
   # Neo4j database for knowledge graph
   neo4j:
-    image: neo4j:5-enterprise
-    environment:
-      NEO4J_AUTH: ${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-password}
-      NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
-      NEO4JLABS_PLUGINS: '["apoc", "graph-data-science"]'
-      NEO4J_dbms_memory_heap_initial__size: 2G
-      NEO4J_dbms_memory_heap_max__size: 4G
+    build:
+      context: .
+      dockerfile: Dockerfile.neo4j
     ports:
       - "7474:7474"  # HTTP
       - "7687:7687"  # Bolt
     volumes:
-      - neo4j-data:/data
-      - neo4j-plugins:/plugins
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - ./neo4j_dump:/import/neo4j_dump
+      - neo4j_plugins:/plugins
+    environment:
+      - NEO4J_AUTH=neo4j/password26
+      - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
+      - NEO4J_dbms_memory_heap_initial__size=2G
+      - NEO4J_dbms_memory_heap_max__size=4G
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
+      - NEO4J_dbms_security_procedures_allowlist=apoc.*,gds.*
+      - NEO4JLABS_PLUGINS=["apoc", "graph-data-science"]
+      - NEO4J_server_default__listen__address=0.0.0.0
+      - NEO4J_server_bolt_listen__address=0.0.0.0:7687
     networks:
       - app-network
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "password26", "RETURN 1;"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 5
+      start_period: 30s
 
   # FastAPI backend
   backend:
@@ -78,11 +87,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: deps
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - /app/.next
     environment:
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-nextauth-secret-key}
@@ -95,7 +102,7 @@ services:
     networks:
       - app-network
     restart: unless-stopped
-    command: npm run dev
+    command: sh -c "cd /app && npm install && npm run dev"
     extra_hosts:
       - "host.docker.internal:host-gateway"  # Add host.docker.internal for easier debugging
 
@@ -105,5 +112,6 @@ networks:
 
 volumes:
   postgres-data:
-  neo4j-data:
-  neo4j-plugins:
+  neo4j_data:
+  neo4j_logs:
+  neo4j_plugins:
