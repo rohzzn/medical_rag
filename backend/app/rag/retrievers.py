@@ -340,8 +340,8 @@ class RagPipeline:
                             print(f"Content preview: {str(item.content)[:100]}...")
                     else:
                         # For VectorCypherRetriever and HybridCypherRetriever
-                    item_sources = self._extract_sources(item.content)
-                    sources.extend(item_sources)
+                        item_sources = self._extract_sources(item.content)
+                        sources.extend(item_sources)
                 
                 # Make sure sources are unique
                 unique_sources = []
