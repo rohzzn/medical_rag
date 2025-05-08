@@ -261,6 +261,9 @@ class RagPipeline:
                 hc = retriever.search(query_text=full_query)
                 sources = []
                 
+                # Store chunks to associate with sources later
+                all_chunks = []
+                
                 # Add diagnostic output to understand what we're getting
                 print(f"==== Retrieved {len(hc.items)} items from retriever ====")
                 for i, item in enumerate(hc.items):
@@ -268,10 +271,22 @@ class RagPipeline:
                     if hasattr(item, 'content'):
                         print(f"Item {i} content type: {type(item.content)}")
                         print(f"Item {i} content preview: {str(item.content)[:300]}")
+                        
+                        # Extract chunks for source content association
+                        if 'truncated_chunk_texts' in str(item.content):
+                            chunk_text = re.search(r"truncated_chunk_texts='(.*?)'", str(item.content), re.DOTALL)
+                            if chunk_text:
+                                extracted_chunks = re.split(r'\\n---\\n', chunk_text.group(1))
+                                all_chunks.extend(extracted_chunks)
+                                
                     elif hasattr(item, 'text'):
                         print(f"Item {i} has text attribute: {item.text[:300]}")
+                        all_chunks.append(item.text)
                     else:
                         print(f"Item {i} attributes: {dir(item)}")
+                
+                # Keep original source extraction logic but collect source paths for content matching
+                source_path_map = {}
                 
                 for item in hc.items:
                     # Handle different retriever types differently
@@ -343,75 +358,42 @@ class RagPipeline:
                         item_sources = self._extract_sources(item.content)
                         sources.extend(item_sources)
                 
-                # Make sure sources are unique
+                # Now enrich the sources with content
                 unique_sources = []
-                seen = set()
+                seen_sources = set()
+                
                 for source in sources:
-                    # Use source name for uniqueness check to avoid duplication
-                    if source.source_name not in seen:
-                        seen.add(source.source_name)
-                        unique_sources.append(source)
-                
-                # Limit to top 5 sources
-                unique_sources = unique_sources[:5]
-                
-                # Try to extract snippets from chunks for each source
-                source_content = {}
-                try:
-                    for item in hc.items:
-                        if hasattr(item, 'content') and 'truncated_chunk_texts' in str(item.content):
-                            chunk_text = re.search(r"truncated_chunk_texts='(.*?)'", str(item.content), re.DOTALL)
-                            if chunk_text:
-                                chunks = re.split(r'\\n---\\n', chunk_text.group(1))
-                                # Process up to 10 chunks for better information extraction
-                                chunks = chunks[:10]
-                                # First, prioritize chunks with keywords for important topics
-                                prioritized_chunks = []
-                                regular_chunks = []
-                                
-                                # Categorize chunks by relevance
-                                for chunk in chunks:
-                                    # Check for important keywords
-                                    is_priority = any(keyword in chunk.lower() for keyword in 
-                                                   ['fda-approved', 'fda approved', 'dupilumab', 'dupixent', 
-                                                    'eoe1', 'eoe2', 'eoe3', 'eoee1', 'eoee2', 'eoee3',
-                                                    'three endotypes', 'primary endotypes', 'il-13', 'il-4',
-                                                    'pathogenesis'])
-                                    if is_priority:
-                                        prioritized_chunks.append(chunk)
-                                    else:
-                                        regular_chunks.append(chunk)
-                                
-                                # Combine prioritized chunks first, then regular chunks
-                                processed_chunks = prioritized_chunks + regular_chunks
-                                
-                                for source in unique_sources:
-                                    if source.source_path not in source_content:
-                                        # Find chunks that might be from this source
-                                        matching_chunks = []
-                                        for chunk in processed_chunks:
-                                            if len(matching_chunks) < 2:  # Limit to 2 chunks per source
-                                                # Improved heuristic to match chunks to sources
-                                                source_words = set(source.source_name.lower().replace('.pdf', '').replace('_', ' ').split())
-                                                if any(word in chunk.lower() for word in source_words if len(word) > 3):
-                                                    # Extract most relevant section of the chunk
-                                                    chunk_extract = self._extract_relevant_section(chunk, source)
-                                                    # Truncate chunk to maximum 500 characters
-                                                    matching_chunks.append(chunk_extract[:500] + ("..." if len(chunk_extract) > 500 else ""))
-                                        
-                                        if matching_chunks:
-                                            source_content[source.source_path] = "\n...\n".join(matching_chunks)
-                except Exception as e:
-                    print(f"Error extracting source content: {e}")
-                    import traceback
-                    traceback.print_exc()
-                
-                # Attach content to sources
-                for source in unique_sources:
-                    if source.source_path in source_content:
-                        source.content = source_content[source.source_path]
-                    else:
-                        source.content = "Content not available"
+                    # Only process unique sources
+                    if source.source_name in seen_sources:
+                        continue
+                    
+                    seen_sources.add(source.source_name)
+                    
+                    # Find chunks that mention this source
+                    source_content = []
+                    source_name_parts = source.source_name.lower().split()
+                    source_path_parts = source.source_path.lower().split('\\')[-1].split('/')[-1].split()
+                    
+                    for chunk in all_chunks:
+                        chunk_lower = chunk.lower()
+                        # Check if chunk is associated with this source
+                        # Match by source name or path
+                        if any(part in chunk_lower for part in source_name_parts if len(part) > 3) or \
+                           any(part in chunk_lower for part in source_path_parts if len(part) > 3):
+                            # Extract a relevant section
+                            relevant_text = self._extract_relevant_section(chunk, source)
+                            if relevant_text and relevant_text not in source_content:
+                                source_content.append(relevant_text)
+                    
+                    # Add content to source (limit to first 2 most relevant chunks)
+                    if source_content:
+                        source.content = " ".join(source_content[:2])
+                    
+                    unique_sources.append(source)
+                    
+                    # Limit to 5 sources
+                    if len(unique_sources) >= 5:
+                        break
                 
                 print(f"Query result: {answer[:100]}... with {len(unique_sources)} sources")
                 

@@ -55,9 +55,10 @@ const SourcesList: React.FC<SourcesListProps> = ({ sources }) => {
                   </a>
                   <p className="text-xs text-gray-500 truncate">{source.paper_id || source.source_path.split('/').pop()}</p>
                 </div>
-                <button 
+                <button
                   onClick={() => toggleSourceExpand(source.source_path)}
-                  className="ml-2 text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600"
+                  aria-label={expandedSource === source.source_path ? "Collapse source" : "Expand source"}
                 >
                   {expandedSource === source.source_path ? (
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -70,10 +71,9 @@ const SourcesList: React.FC<SourcesListProps> = ({ sources }) => {
                   )}
                 </button>
               </div>
-              
               {expandedSource === source.source_path && source.content && (
-                <div className="mt-2 ml-7 text-sm text-gray-700 bg-gray-50 p-3 rounded-md border border-gray-200 overflow-auto max-h-60">
-                  <pre className="whitespace-pre-wrap font-sans">{source.content}</pre>
+                <div className="mt-2 ml-7 text-sm bg-gray-50 p-3 rounded-md border border-gray-100">
+                  <p className="text-gray-700 whitespace-pre-wrap">{source.content}</p>
                 </div>
               )}
             </div>
