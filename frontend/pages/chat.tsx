@@ -164,7 +164,7 @@ export default function Chat() {
   };
 
   return (
-    <Layout title="Chat | Medical RAG App">
+    <Layout title="Chat | CEGIR">
       {showAllSources && <AllSourcesModal onClose={() => setShowAllSources(false)} />}
       
       <div className="flex h-[calc(100vh-64px)]">
@@ -173,6 +173,8 @@ export default function Chat() {
           currentConversationId={conversationId}
           onConversationSelect={handleSelectConversation}
           onNewChat={handleNewChat}
+          onSuggestedQuestionClick={handleSuggestedQuestion}
+          suggestedQuestions={suggestedQuestions}
         />
         
         <div className="flex flex-col flex-1">
@@ -215,7 +217,7 @@ export default function Chat() {
             {messages.length === 0 ? (
               <div className="h-full flex items-center justify-center text-gray-400">
                 <div className="text-center">
-                  <h2 className="text-2xl font-bold mb-4">Medical Literature Search Assistant</h2>
+                  <h2 className="text-2xl font-bold mb-4">CEGIR Literature Search Assistant</h2>
                   <p className="mb-8">Ask questions about medical research papers and get answers based on the literature.</p>
                 </div>
               </div>
@@ -231,23 +233,7 @@ export default function Chat() {
             )}
           </div>
           
-          {/* Suggested questions */}
-          {messages.length === 0 && (
-            <div className="p-4 border-t border-gray-200 bg-gray-50">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Suggested Questions</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {suggestedQuestions.map((question, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleSuggestedQuestion(question)}
-                    className="text-left text-sm bg-white p-2 rounded-md border border-gray-300 hover:bg-gray-100 truncate"
-                  >
-                    {question}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Suggested questions - moved to sidebar as vertical list */}
           
           {/* Input form */}
           <div className="border-t border-gray-200 p-4 bg-white">
@@ -256,10 +242,18 @@ export default function Chat() {
                 <textarea
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-h-[80px] max-h-[160px]"
-                placeholder="Ask about eosinophilic disorders..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (newMessage.trim() && !isLoading) {
+                      handleSendMessage(e);
+                    }
+                  }
+                }}
+                className="w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-h-[80px] max-h-[160px]"
+                placeholder="Ask about eosinophilic disorders... (Press Enter to send, Shift+Enter for new line)"
                 disabled={isLoading}
-                  rows={3}
+                rows={3}
               />
               </div>
               <button

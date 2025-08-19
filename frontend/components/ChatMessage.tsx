@@ -29,14 +29,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         }`}
       >
         {/* Message content */}
-        <div className="whitespace-pre-wrap">
+        <div className="whitespace-pre-wrap break-words overflow-wrap-anywhere max-w-full overflow-hidden">
           {message.content}
         </div>
         
-        {/* Display sources for assistant messages if they exist */}
-        {!isUser && message.sources && message.sources.length > 0 && (
+        {/* Always display sources panel for assistant messages */}
+        {!isUser && (
           <div className="mt-4">
-            <SourcesList sources={message.sources} />
+            <SourcesList sources={message.sources || []} />
           </div>
         )}
       </div>

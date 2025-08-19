@@ -9,7 +9,7 @@ interface LayoutProps {
   title?: string;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, title = 'Medical RAG App' }) => {
+const Layout: React.FC<LayoutProps> = ({ children, title = 'CEGIR Literature Search Assistant' }) => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const isLoading = status === 'loading';
@@ -24,7 +24,7 @@ const Layout: React.FC<LayoutProps> = ({ children, title = 'Medical RAG App' }) 
     <div className="min-h-screen bg-gray-50">
       <Head>
         <title>{title}</title>
-        <meta name="description" content="Medical RAG Application" />
+        <meta name="description" content="CEGIR Literature Search Assistant" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       
@@ -34,8 +34,8 @@ const Layout: React.FC<LayoutProps> = ({ children, title = 'Medical RAG App' }) 
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <Link href="/" className="text-xl font-bold text-indigo-600">
-                  Medical RAG
+                <Link href="/" className="text-xl font-bold text-indigo-600 truncate max-w-xs">
+                  CEGIR 
                 </Link>
               </div>
               {session && (

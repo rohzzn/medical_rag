@@ -5,12 +5,16 @@ interface ConversationSidebarProps {
   currentConversationId: number | null;
   onConversationSelect: (id: number) => void;
   onNewChat: () => void;
+  onSuggestedQuestionClick?: (question: string) => void;
+  suggestedQuestions?: string[];
 }
 
 const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   currentConversationId,
   onConversationSelect,
-  onNewChat
+  onNewChat,
+  onSuggestedQuestionClick,
+  suggestedQuestions = []
 }) => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -152,6 +156,27 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
             </ul>
           )}
         </div>
+
+        {/* Suggested Questions - Vertical List */}
+        {suggestedQuestions.length > 0 && onSuggestedQuestionClick && (
+          <div className="border-t border-gray-200 p-4">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              Suggested Questions
+            </h2>
+            <ul className="space-y-2">
+              {suggestedQuestions.map((question, index) => (
+                <li key={index}>
+                  <button
+                    onClick={() => onSuggestedQuestionClick(question)}
+                    className="text-left text-sm text-indigo-600 hover:text-indigo-800 hover:underline w-full truncate"
+                  >
+                    {question}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </>
   );

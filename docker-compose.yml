@@ -51,6 +51,45 @@ services:
       timeout: 10s
       retries: 20
       start_period: 30s
+    # Custom command to load data before starting Neo4j
+    command: >
+      bash -c '
+        echo "*** Starting Neo4j with data loading ***"
+        DUMP_FILE="/import/neo4j_dump/neo4j.dump"
+        if [ -f "$DUMP_FILE" ]; then
+          echo "Found neo4j.dump file"
+          
+          # Set the initial password before loading anything
+          neo4j-admin dbms set-initial-password "password26" || echo "Password may already be set"
+          
+          # Load the dump file if database doesn't exist already
+          if [ ! -d "/data/databases/neo4j" ] || [ -z "$(ls -A /data/databases/neo4j)" ]; then
+            echo "Loading dump file..."
+            neo4j-admin database load neo4j --from-path="/import/neo4j_dump" --overwrite-destination=true || {
+              echo "Error loading dump file"
+              ls -la /import/neo4j_dump/
+            }
+            echo "Creating vector indexes..."
+            # Start Neo4j temporarily to create indexes
+            neo4j start
+            sleep 15
+            cypher-shell -u neo4j -p password26 "CREATE VECTOR INDEX text_embeddings IF NOT EXISTS FOR (c:Chunk) ON (c.embedding) OPTIONS {indexConfig: {`vector.dimensions`: 1536, `vector.similarity_function`: \"cosine\"}};"
+            cypher-shell -u neo4j -p password26 "CREATE FULLTEXT INDEX text_embeddings2 IF NOT EXISTS FOR (c:Chunk) ON EACH [c.text];"
+            neo4j stop
+            sleep 5
+          else
+            echo "Database already exists, skipping dump loading"
+          fi
+        else
+          echo "WARNING: neo4j.dump file not found at $DUMP_FILE"
+          ls -la /import/
+          echo "Starting with empty database."
+        fi
+        
+        # Start Neo4j
+        echo "Starting Neo4j..."
+        exec neo4j console
+      '
 
   # FastAPI backend
   backend:

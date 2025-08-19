@@ -16,13 +16,13 @@ export default function Home() {
   };
 
   return (
-    <Layout title="Home | Medical RAG App">
+    <Layout title="Home | CEGIR">
       <div className="flex flex-col items-center justify-center pt-12">
         <h1 className="text-4xl font-bold text-gray-900 mb-6">
-          Medical Knowledge Exploration
+          CEGIR Literature Search Assistant
         </h1>
         <p className="text-xl text-gray-600 mb-8 text-center max-w-2xl">
-          Query our medical knowledge graph to get insights from research papers and medical literature.
+          Query the CEGIR knowledge base to get insights from research papers and medical literature.
         </p>
         <button 
           onClick={handleStartChatting}

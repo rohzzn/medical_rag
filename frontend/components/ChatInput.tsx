@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, KeyboardEvent } from 'react';
 
 interface ChatInputProps {
   onSubmit: (query: string) => void;
@@ -17,6 +17,15 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading }) => {
     }
   };
   
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (query.trim() && !isLoading) {
+        handleSubmit(e);
+      }
+    }
+  };
+  
   return (
     <form onSubmit={handleSubmit} className="mt-6">
       <div className="flex">
@@ -24,7 +33,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isLoading }) => {
           className="flex-grow p-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask a medical question..."
+          onKeyDown={handleKeyDown}
+          placeholder="Ask a medical question... (Press Enter to send, Shift+Enter for new line)"
           rows={2}
           disabled={isLoading}
         />

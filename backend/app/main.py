@@ -12,7 +12,7 @@ from app.env_setup import setup_env
 setup_env()
 
 # Now import the rest of the modules
-from app.api import auth, users, queries
+from app.api import auth, users, queries, rag_endpoint, ui_rag_endpoint
 from app.core.config import settings
 from app.db.models import Base
 from app.db import models, crud
@@ -65,6 +65,8 @@ except Exception as e:
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["authentication"])
 app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
 app.include_router(queries.router, prefix=f"{settings.API_V1_STR}/queries", tags=["queries"])
+app.include_router(rag_endpoint.router, prefix=f"{settings.API_V1_STR}/rag", tags=["rag"])
+app.include_router(ui_rag_endpoint.router, prefix=f"{settings.API_V1_STR}/ui-rag", tags=["ui-rag"])
 
 # Retriever type endpoint - new!
 @app.get("/api/v1/retriever-type")

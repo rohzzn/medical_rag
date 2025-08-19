@@ -5,7 +5,13 @@ module.exports = {
       "./components/**/*.{js,ts,jsx,tsx}",
     ],
     theme: {
-      extend: {},
+      extend: {
+        utilities: {
+          '.overflow-wrap-anywhere': {
+            'overflow-wrap': 'anywhere',
+          },
+        },
+      },
     },
     plugins: [],
   }

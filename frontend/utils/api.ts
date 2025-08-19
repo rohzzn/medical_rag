@@ -123,6 +123,8 @@ export interface Source {
   paper_id?: string;
   paper_url?: string;
   content?: string;
+  location?: string;
+  why_it_supports?: string;
 }
 
 export interface Conversation {

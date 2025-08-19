@@ -12,7 +12,8 @@ from app.schemas.query import (
     QueryRequest, 
     QueryResult, 
     MessageCreate, 
-    MessageWithSources
+    MessageWithSources,
+    RagResponse
 )
 from app.rag.retrievers import RagPipeline
 
@@ -143,3 +144,67 @@ def get_messages_for_conversation(
     # Get messages
     messages = crud.get_messages(db, conversation_id=conversation_id)
     return messages
+
+
+@router.post("/rag-assistant", response_model=RagResponse)
+async def rag_assistant_query(
+    query_request: QueryRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_db_user),
+    x_retriever_type: Optional[str] = Header(None, alias="retriever-type")
+):
+    """Process a query and return a response in the RAG Assistant format."""
+    # Get the retriever type from header or environment
+    retriever_type = x_retriever_type or os.getenv("RETRIEVER_TYPE", "hybrid")
+    
+    # Validate retriever type
+    if retriever_type not in ["hybrid", "vector_cypher", "vector"]:
+        retriever_type = "hybrid"  # Default to hybrid if invalid
+    
+    # Get or create a conversation
+    conversation_id = query_request.conversation_id
+    if not conversation_id:
+        # Create a new conversation with the query as title
+        conversation = crud.create_conversation(
+            db, 
+            user_id=current_user.id, 
+            title=query_request.query[:50] + "..." if len(query_request.query) > 50 else query_request.query
+        )
+        conversation_id = conversation.id
+    else:
+        # Check if conversation exists and belongs to user
+        conversation = crud.get_conversation(db, conversation_id=conversation_id)
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        if conversation.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized to access this conversation")
+    
+    # Store the user query
+    crud.create_message(
+        db,
+        conversation_id=conversation_id,
+        role="user",
+        content=query_request.query
+    )
+    
+    # Get conversation history
+    messages = crud.get_messages(db, conversation_id=conversation_id)
+    
+    # Process query with RAG pipeline, passing the retriever type and use_rag_format=True
+    result = rag_pipeline.search(
+        query_request.query, 
+        messages,
+        retriever_type=retriever_type,
+        use_rag_format=True
+    )
+    
+    # Store the assistant response
+    crud.create_message(
+        db,
+        conversation_id=conversation_id,
+        role="assistant",
+        content=result.answer
+        # Note: We don't store sources in the database for RAG assistant format
+    )
+    
+    return result

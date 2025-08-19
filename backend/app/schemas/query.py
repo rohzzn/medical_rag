@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Literal
 from datetime import datetime
 
 
@@ -18,6 +18,8 @@ class Source(BaseModel):
     paper_id: Optional[str] = None
     paper_url: Optional[str] = None
     content: Optional[str] = None
+    location: Optional[str] = None
+    why_it_supports: Optional[str] = None
 
 
 class MessageWithSources(MessageBase):
@@ -64,3 +66,19 @@ class QueryResult(BaseModel):
     answer: str
     sources: List[Source]
     conversation_id: int
+
+
+class RagSourceSnippet(BaseModel):
+    text: str
+
+
+class RagSource(BaseModel):
+    path: str
+    title: str
+    url: Optional[str] = None
+    snippets: List[str]
+
+
+class RagResponse(BaseModel):
+    answer: str
+    sources: List[RagSource] = []

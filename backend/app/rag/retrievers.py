@@ -1,7 +1,7 @@
 import os
 import re
 import json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 import neo4j
 from neo4j_graphrag.generation import RagTemplate
 from neo4j_graphrag.generation.graphrag import GraphRAG
@@ -10,7 +10,8 @@ from neo4j_graphrag.retrievers import HybridCypherRetriever, VectorCypherRetriev
 from app.rag.neo4j import Neo4jManager
 from app.rag.embeddings import get_embedder
 from app.rag.llm import get_llm
-from app.schemas.query import Source
+from app.rag.rag_assistant import format_rag_response
+from app.schemas.query import Source, RagResponse
 
 
 class RagPipeline:
@@ -114,7 +115,9 @@ class RagPipeline:
                             sources.append(Source(
                                 source_path=path, 
                                 source_name=clean_source_name,
-                                paper_url=box_url
+                                paper_url=box_url,
+                                location="From knowledge graph",
+                                why_it_supports="Contains relevant medical information about the topic in the query."
                             ))
                             print(f"Added source: {clean_source_name}")
                     
@@ -157,7 +160,9 @@ class RagPipeline:
                         sources.append(Source(
                             source_path=path, 
                             source_name=clean_source_name,
-                            paper_url=box_url
+                            paper_url=box_url,
+                            location="From knowledge graph",
+                            why_it_supports="Contains relevant medical information about the topic in the query."
                         ))
                         print(f"Added source: {clean_source_name}")
                 
@@ -210,7 +215,7 @@ class RagPipeline:
                 embedder=self.embedder
             )
     
-    def search(self, query: str, conversation_history=None, retriever_type=None) -> Dict[str, Any]:
+    def search(self, query: str, conversation_history=None, retriever_type=None, use_rag_format: bool = False) -> Union[Dict[str, Any], RagResponse]:
         """
         Search the knowledge graph and generate an answer with sources.
         
@@ -226,10 +231,15 @@ class RagPipeline:
         
         if not self.rag_enabled:
             print("RAG pipeline is not enabled")
-            return {
-                "answer": "I'm sorry, but there was an issue connecting to the knowledge graph. Please check the Neo4j connection and OpenAI API key configuration.",
-                "sources": []
-            }
+            error_message = "I don't have enough evidence in the current knowledge base to answer."
+            
+            if use_rag_format:
+                return RagResponse(answer=error_message, sources=[])
+            else:
+                return {
+                    "answer": error_message,
+                    "sources": []
+                }
             
         try:
             # Create Neo4j connection
@@ -317,7 +327,9 @@ class RagPipeline:
                                             sources.append(Source(
                                                 source_path=path, 
                                                 source_name=clean_source_name,
-                                                paper_url=box_url
+                                                paper_url=box_url,
+                                                location="From knowledge graph",
+                                                why_it_supports="Contains relevant medical information about the topic in the query."
                                             ))
                                             print(f"Added vector source: {clean_source_name}")
                             else:
@@ -347,7 +359,9 @@ class RagPipeline:
                                     sources.append(Source(
                                         source_path=source, 
                                         source_name=clean_source_name,
-                                        paper_url=box_url
+                                        paper_url=box_url,
+                                        location="From knowledge graph",
+                                        why_it_supports="Contains relevant medical information about the topic in the query."
                                     ))
                                     print(f"Successfully extracted source: {clean_source_name}")
                         except Exception as e:
@@ -388,6 +402,22 @@ class RagPipeline:
                     # Add content to source (limit to first 2 most relevant chunks)
                     if source_content:
                         source.content = " ".join(source_content[:2])
+                        
+                        # Add more specific location information
+                        paper_name = source.source_name
+                        if paper_name:
+                            source.location = f"Medical literature: {paper_name}"
+                            
+                        # Generate a more specific why_it_supports based on content
+                        content_lower = source.content.lower()
+                        if "eoe" in content_lower or "eosinophilic esophagitis" in content_lower:
+                            source.why_it_supports = "Directly discusses EoE and its variants or treatments."
+                        elif "endotype" in content_lower or "variant" in content_lower:
+                            source.why_it_supports = "Describes specific disease variants or endotypes related to the query."
+                        elif "treatment" in content_lower or "therapy" in content_lower:
+                            source.why_it_supports = "Contains information about treatment approaches for the condition."
+                        elif "pathogenesis" in content_lower or "mechanism" in content_lower:
+                            source.why_it_supports = "Explains disease mechanisms or pathogenesis relevant to the query."
                     
                     unique_sources.append(source)
                     
@@ -397,18 +427,27 @@ class RagPipeline:
                 
                 print(f"Query result: {answer[:100]}... with {len(unique_sources)} sources")
                 
-                return {
-                    "answer": answer,
-                    "sources": unique_sources
-                }
+                # Format response based on requested format
+                if use_rag_format:
+                    return format_rag_response(answer, hc.items, retriever_type or os.getenv('RETRIEVER_TYPE', 'hybrid'))
+                else:
+                    return {
+                        "answer": answer,
+                        "sources": unique_sources
+                    }
         except Exception as e:
             print(f"Error during RAG search: {e}")
             import traceback
             traceback.print_exc()
-            return {
-                "answer": f"An error occurred while processing your query: {str(e)}",
-                "sources": []
-            }
+            error_message = "I don't have enough evidence in the current knowledge base to answer."
+            
+            if use_rag_format:
+                return RagResponse(answer=error_message, sources=[])
+            else:
+                return {
+                    "answer": error_message,
+                    "sources": []
+                }
 
     def _extract_relevant_section(self, chunk: str, source: Source) -> str:
         """Extract the most relevant section of a chunk for a particular source and topic."""
