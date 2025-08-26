@@ -335,17 +335,14 @@ class RagPipeline:
                             else:
                                 print("No chunk_sources found in Record format")
                                 try:
-                                    # First attempt: parse as JSON
-                                    data_dict = json.loads(content.replace("'", '"'))
+                                    # Handle the actual data format: "{'text': '...', 'source2': '...'}"
+                                    import ast
+                                    data_dict = ast.literal_eval(content)
                                     source = data_dict.get("source2", "")
-                                except json.JSONDecodeError:
-                                    # Second attempt: extract using regex
-                                    source_match = re.search(r"source2'\s*:\s*'([^']+)'", str(content))
+                                except (ValueError, SyntaxError):
+                                    # Fallback to regex
+                                    source_match = re.search(r"'source2':\s*'([^']+)'", str(content))
                                     source = source_match.group(1) if source_match else ""
-                                    if not source:
-                                        # Third attempt: extract from raw text
-                                        source_match = re.search(r"source2[=:]\s*([^\s,}]+)", str(content))
-                                        source = source_match.group(1) if source_match else ""
                                       
                                 if source:
                                     source_name = source.split('\\')[-1] if '\\' in source else source.split('/')[-1]

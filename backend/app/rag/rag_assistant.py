@@ -71,12 +71,19 @@ def process_vector_results(items: List[Any]) -> List[Dict[str, Any]]:
             # Convert string representation to dictionary if needed
             content = item.content
             if isinstance(content, str):
-                # Try to extract source2 and text using regex
-                source_match = re.search(r"source2['\":\s]+([^'\",\s]+)", content)
-                text_match = re.search(r"text['\":\s]+([^'\"]+)", content)
-                
-                source_path = source_match.group(1) if source_match else None
-                text = text_match.group(1) if text_match else None
+                # Handle the actual data format: "{'text': '...', 'source2': '...'}"
+                try:
+                    # First try to evaluate the string as a Python dict
+                    import ast
+                    data_dict = ast.literal_eval(content)
+                    source_path = data_dict.get("source2")
+                    text = data_dict.get("text")
+                except (ValueError, SyntaxError):
+                    # Fallback to regex if ast.literal_eval fails
+                    source_match = re.search(r"'source2':\s*'([^']+)'", content)
+                    text_match = re.search(r"'text':\s*'([^']+)'", content)
+                    source_path = source_match.group(1) if source_match else None
+                    text = text_match.group(1) if text_match else None
                 
                 if not source_path or not text:
                     continue
