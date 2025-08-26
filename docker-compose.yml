@@ -9,7 +9,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
-      - "6543:5432" # Changed from 5432:5432 to avoid port conflict
+      - "6543:5432" # No conflict - this is good
     networks:
       - app-network
     healthcheck:
@@ -17,6 +17,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   # Neo4j database for knowledge graph
   neo4j:
@@ -24,8 +25,8 @@ services:
       context: .
       dockerfile: Dockerfile.neo4j
     ports:
-      - "7474:7474"  # HTTP
-      - "7687:7687"  # Bolt
+      - "7476:7474"  # Changed from 7474 to avoid conflict with docai-neo4j-1
+      - "7689:7687"  # Changed from 7687 to avoid conflict with docai-neo4j-1
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
@@ -51,6 +52,7 @@ services:
       timeout: 10s
       retries: 20
       start_period: 30s
+    restart: unless-stopped
     # Custom command to load data before starting Neo4j
     command: >
       bash -c '
@@ -101,10 +103,10 @@ services:
       - /app/venv  # Exclude the virtual environment directory
       - ./.env:/app/.env  # Mount the root .env file directly into the container
     environment:
-      # Make absolutely sure the Neo4j connection parameters are the same as in the notebook
-      - NEO4J_URI=${NEO4J_URI:-bolt://neo4j:7687}
+      # Neo4j connection parameters updated for new ports
+      - NEO4J_URI=${NEO4J_URI:-bolt://neo4j:7687}  # Internal container port stays 7687
       - NEO4J_USERNAME=${NEO4J_USERNAME:-neo4j}
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password26}  # Use the value from your notebook
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password26}
       - POSTGRES_SERVER=postgres  # Use service name
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
@@ -113,7 +115,7 @@ services:
       - LLM_MODEL=${LLM_MODEL:-gpt-4o}
       - SECRET_KEY=${SECRET_KEY:-supersecretkey}
     ports:
-      - "8000:8000"
+      - "8001:8000"  # Changed from 8000 to avoid conflict with docai-django-1
     depends_on:
       postgres:
         condition: service_healthy
@@ -132,12 +134,12 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3001}  # Updated for new port
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-nextauth-secret-key}
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
-      - SERVER_API_URL=http://backend:8000/api/v1  # Use Docker service name for server-side
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8001/api/v1}  # Updated for new backend port
+      - SERVER_API_URL=http://backend:8000/api/v1  # Internal container port stays 8000
     ports:
-      - "3000:3000"
+      - "3001:3000"  # Changed from 3000 to avoid conflict with docai-react-1
     depends_on:
       - backend
     networks:
