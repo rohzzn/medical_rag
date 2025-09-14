@@ -7,6 +7,19 @@ interface SourcesListProps {
 
 const SourcesList: React.FC<SourcesListProps> = ({ sources }) => {
   const [expandedSource, setExpandedSource] = useState<string | null>(null);
+  const [sourcesCollapsed, setSourcesCollapsed] = useState<boolean>(true);
+
+  // Auto-expand sources if they're newly received and we had no sources before
+  const [previousSourcesCount, setPreviousSourcesCount] = useState(0);
+  
+  React.useEffect(() => {
+    const currentCount = sources?.length || 0;
+    if (currentCount > 0 && previousSourcesCount === 0) {
+      // New sources arrived - keep collapsed by default but user can expand
+      setSourcesCollapsed(true);
+    }
+    setPreviousSourcesCount(currentCount);
+  }, [sources?.length, previousSourcesCount]);
 
   // Debug logging
   console.log("SourcesList received sources:", sources);
@@ -27,6 +40,11 @@ const SourcesList: React.FC<SourcesListProps> = ({ sources }) => {
     : [];
   
   console.log("Unique sources after processing:", uniqueSources.length);
+  
+  // Don't render anything if there are no sources
+  if (!uniqueSources || uniqueSources.length === 0) {
+    return null;
+  }
   
   const toggleSourceExpand = (sourcePath: string) => {
     if (expandedSource === sourcePath) {
@@ -59,13 +77,33 @@ const SourcesList: React.FC<SourcesListProps> = ({ sources }) => {
         }
       `}</style>
       <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 mb-4 source-container">
-        <h3 className="font-medium text-gray-800 mb-2">Sources ({uniqueSources.length})</h3>
-      {uniqueSources.length === 0 ? (
-        <div className="py-3 text-gray-600 text-sm italic">
-          {sources && sources.length > 0 ? "Processing sources..." : "No sources found for this query."}
+        <div 
+          className="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded p-2 -m-2 transition-colors"
+          onClick={() => setSourcesCollapsed(!sourcesCollapsed)}
+        >
+          <div className="flex items-center">
+            <h3 className="font-medium text-gray-800">Sources ({uniqueSources.length})</h3>
+            {sourcesCollapsed && uniqueSources.length > 0 && (
+              <span className="ml-2 text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">
+                Click to view
+              </span>
+            )}
+          </div>
+          <button className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+            {sourcesCollapsed ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+              </svg>
+            )}
+          </button>
         </div>
-      ) : (
-        <ul className="divide-y divide-gray-200">
+        
+        {!sourcesCollapsed && (
+          <ul className="divide-y divide-gray-200 mt-2">
           {uniqueSources.map((source, index) => (
             <li key={index} className="py-3">
               <div className="flex flex-col">
@@ -134,8 +172,8 @@ const SourcesList: React.FC<SourcesListProps> = ({ sources }) => {
               </div>
             </li>
           ))}
-        </ul>
-      )}
+          </ul>
+        )}
       </div>
     </>
   );
