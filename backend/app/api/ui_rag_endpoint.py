@@ -14,7 +14,16 @@ from app.rag.retrievers import RagPipeline
 from app.rag.ui_formatter import format_for_ui, enhance_with_metadata
 
 router = APIRouter()
-rag_pipeline = RagPipeline()
+
+# Initialize RAG pipeline lazily to avoid startup issues
+rag_pipeline = None
+
+def get_rag_pipeline():
+    global rag_pipeline
+    if rag_pipeline is None:
+        print("🔧 Initializing RAG pipeline...")
+        rag_pipeline = RagPipeline()
+    return rag_pipeline
 
 
 @router.post("/query", response_model=Dict[str, Any])
@@ -73,7 +82,8 @@ async def ui_rag_query(
     messages = crud.get_messages(db, conversation_id=conversation_id)
     
     # Process query with RAG pipeline
-    result = rag_pipeline.search(
+    pipeline = get_rag_pipeline()
+    result = pipeline.search(
         query_request.query, 
         messages,
         retriever_type=retriever_type,

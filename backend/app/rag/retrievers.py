@@ -6,77 +6,40 @@ import neo4j
 from neo4j_graphrag.generation import RagTemplate
 from neo4j_graphrag.generation.graphrag import GraphRAG
 from neo4j_graphrag.retrievers import HybridCypherRetriever, VectorCypherRetriever, VectorRetriever
+try:
+    from neo4j_graphrag.models import RetrieverResult as _RetrieverResult
+except Exception:
+    class _RetrieverResult:  # Fallback minimal implementation
+        def __init__(self, items=None):
+            self.items = items or []
+
+RetrieverResult = _RetrieverResult
 
 from app.rag.neo4j import Neo4jManager
 from app.rag.embeddings import get_embedder
 from app.rag.llm import get_llm
 from app.rag.rag_assistant import format_rag_response
+from app.rag.reference_rag import ReferenceRagPipeline
 from app.schemas.query import Source, RagResponse
+from app.core.config import settings
 
 
 class RagPipeline:
     """
-    RAG Pipeline implementation that closely follows the Jupyter notebook implementation.
+    RAG Pipeline that uses the exact reference app logic for consistent results.
     """
     def __init__(self):
         try:
-            print("Initializing RAG pipeline following Jupyter notebook approach...")
+            print("Initializing RAG pipeline using reference app logic...")
             
-            # Initialize OpenAI LLM and embeddings
-            self.embedder = get_embedder()
-            self.llm = get_llm()
-            
-            # Set up retrieval query - significantly reduced limits to avoid token limit errors
-            self.retrieval_query = """
-            // 1) Go out 2-3 hops in the entity graph and get relationships
-            WITH node AS chunk
-            MATCH (chunk)<-[:FROM_CHUNK]-()-[relList:!FROM_CHUNK]-{1,2}() 
-            UNWIND relList AS rel
-
-            // 2) Collect relationships, text chunks, and sources
-            WITH collect(DISTINCT chunk)[0..10] AS chunks, // Increased chunk limit for better coverage
-              collect(DISTINCT rel)[0..20] AS rels // Increased relationship limit for better context
-
-            // 3) Format and return context with sources
-            UNWIND chunks AS c
-            WITH collect(c.text) AS chunk_texts, collect(c.source2) AS chunk_sources, rels
-            
-            UNWIND rels AS r
-            WITH chunk_texts, chunk_sources, collect(startNode(r).name + ' - ' + type(r) + '(' + coalesce(r.details, '') + ')' + ' -> ' + endNode(r).name)[0..20] AS rel_texts // Increased relationship texts
-            
-            RETURN 
-              reduce(s = '', t IN chunk_texts | s + CASE WHEN s = '' THEN '' ELSE '\n---\n' END + substring(t, 0, 1000)) AS truncated_chunk_texts, // Increased chunk size to 1000 chars
-              reduce(s = '', t IN chunk_sources | s + CASE WHEN s = '' THEN '' ELSE '\n---\n' END + t) AS chunk_sources,
-              reduce(s = '', t IN rel_texts | s + CASE WHEN s = '' THEN '' ELSE '\n---\n' END + t) AS truncated_relationship_texts
-            """
-            
-            # Set up RAG template - identical to notebook
-            self.rag_template = RagTemplate(
-                template='''Answer the Question using the following Context. Only respond with information mentioned in the Context. Do not inject any speculative information not mentioned.
-
-# Question:
-{query_text}
-
-# Context:
-{context}
-
-# Answer:
-''', 
-                expected_inputs=['query_text', 'context']
-            )
-            
-            # Test Neo4j connection
-            with Neo4jManager() as neo4j_manager:
-                if not neo4j_manager.driver:
-                    raise Exception("Failed to connect to Neo4j")
-                result = neo4j_manager.driver.verify_connectivity()
-                print(f"Neo4j connection verified: {result}")
-                self.rag_enabled = True
+            # Use the reference implementation
+            self.reference_pipeline = ReferenceRagPipeline()
+            self.rag_enabled = self.reference_pipeline.rag_enabled
                 
-            print("RAG pipeline successfully initialized matching Jupyter notebook")
+            print("RAG pipeline successfully initialized using reference app logic")
             
         except Exception as e:
-            print(f"Error initializing RAG pipeline (detailed): {str(e)}")
+            print(f"Error initializing RAG pipeline: {str(e)}")
             self.rag_enabled = False
     
     def _format_history(self, messages):
@@ -217,17 +180,9 @@ class RagPipeline:
     
     def search(self, query: str, conversation_history=None, retriever_type=None, use_rag_format: bool = False) -> Union[Dict[str, Any], RagResponse]:
         """
-        Search the knowledge graph and generate an answer with sources.
-        
-        Args:
-            query: The user's query
-            conversation_history: Optional list of previous messages
-            retriever_type: Optional retriever type to use (hybrid, vector_cypher, or vector)
-        
-        Returns:
-            Dict with answer and sources
+        Search using the exact reference app logic for consistent results.
         """
-        print(f"RAG search for query: {query} with retriever type: {retriever_type or os.getenv('RETRIEVER_TYPE', 'hybrid')}")
+        print(f"RAG search for query: {query} with retriever type: {retriever_type or 'hybrid'}")
         
         if not self.rag_enabled:
             print("RAG pipeline is not enabled")
@@ -240,211 +195,55 @@ class RagPipeline:
                     "answer": error_message,
                     "sources": []
                 }
+        
+        # Delegate to the reference pipeline for consistent results
+        result = self.reference_pipeline.search(
+            query=query,
+            conversation_history=conversation_history,
+            retriever_type=retriever_type,
+            use_rag_format=use_rag_format
+        )
+        
+        # Convert sources to Source objects for compatibility
+        if "sources" in result and isinstance(result["sources"], list):
+            converted_sources = []
+            source_contents = result.get("source_contents", {})
             
-        try:
-            # Create Neo4j connection
-            with Neo4jManager() as neo4j_manager:
-                # Create the appropriate retriever
-                retriever = self._get_retriever(neo4j_manager, retriever_type)
+            for source_path in result["sources"]:
+                source_name = source_path.split('\\')[-1] if '\\' in source_path else source_path.split('/')[-1]
+                clean_name = self._clean_source_name(source_name)
+                url = self._get_box_url(source_name)
+                content = source_contents.get(source_path, "")
                 
-                # Create the GraphRAG instance
-                h_rag = GraphRAG(
-                    llm=self.llm,
-                    retriever=retriever,
-                    prompt_template=self.rag_template
+                src_obj = Source(
+                    source_path=source_path,
+                    source_name=clean_name,
+                    paper_url=url,
+                    content=content[:1000] if content else "",
+                    location="Document excerpt",
+                    why_it_supports="Contains relevant information that directly addresses the query."
                 )
-                
-                # Prepare the query with conversation history if provided
-                if conversation_history and len(conversation_history) > 0:
-                    formatted_history = self._format_history(conversation_history)
-                    full_query = f"{formatted_history}\nuser: {query}"
-                else:
-                    full_query = query
-                
-                print(f"Full query: {full_query}")
-                
-                # Get response from GraphRAG
-                response = h_rag.search(full_query)
-                answer = response.answer
-                
-                # Get sources from retriever
-                hc = retriever.search(query_text=full_query)
-                sources = []
-                
-                # Store chunks to associate with sources later
-                all_chunks = []
-                
-                # Add diagnostic output to understand what we're getting
-                print(f"==== Retrieved {len(hc.items)} items from retriever ====")
-                for i, item in enumerate(hc.items):
-                    print(f"Item {i} type: {type(item)}")
-                    if hasattr(item, 'content'):
-                        print(f"Item {i} content type: {type(item.content)}")
-                        print(f"Item {i} content preview: {str(item.content)[:300]}")
-                        
-                        # Extract chunks for source content association
-                        if 'truncated_chunk_texts' in str(item.content):
-                            chunk_text = re.search(r"truncated_chunk_texts='(.*?)'", str(item.content), re.DOTALL)
-                            if chunk_text:
-                                extracted_chunks = re.split(r'\\n---\\n', chunk_text.group(1))
-                                all_chunks.extend(extracted_chunks)
-                                
-                    elif hasattr(item, 'text'):
-                        print(f"Item {i} has text attribute: {item.text[:300]}")
-                        all_chunks.append(item.text)
-                    else:
-                        print(f"Item {i} attributes: {dir(item)}")
-                
-                # Keep original source extraction logic but collect source paths for content matching
-                source_path_map = {}
-                
-                for item in hc.items:
-                    # Handle different retriever types differently
-                    if isinstance(retriever, VectorRetriever):
-                        try:
-                            content = item.content
-                            # Check if this is a Neo4j Record format
-                            if isinstance(content, str) and content.strip().startswith('<Record'):
-                                source_match = re.search(r"chunk_sources='(.*?)'", content)
-                                if source_match:
-                                    print("Found sources in Record format for Vector retriever")
-                                    chunk_sources_text = source_match.group(1)
-                                    source_paths = re.split(r'\\n---\\n', chunk_sources_text)
-                                    
-                                    # Add sources from the paths
-                                    for path in source_paths:
-                                        path = path.strip()
-                                        if path:
-                                            # Extract filename from path
-                                            source_name = path.split('\\')[-1] if '\\' in path else path.split('/')[-1]
-                                            
-                                            # Clean up the source name
-                                            clean_source_name = self._clean_source_name(source_name)
-                                            
-                                            # Get the Box URL for the source
-                                            box_url = self._get_box_url(source_name)
-                                            
-                                            sources.append(Source(
-                                                source_path=path, 
-                                                source_name=clean_source_name,
-                                                paper_url=box_url,
-                                                location="From knowledge graph",
-                                                why_it_supports="Contains relevant medical information about the topic in the query."
-                                            ))
-                                            print(f"Added vector source: {clean_source_name}")
-                            else:
-                                print("No chunk_sources found in Record format")
-                                try:
-                                    # Handle the actual data format: "{'text': '...', 'source2': '...'}"
-                                    import ast
-                                    data_dict = ast.literal_eval(content)
-                                    source = data_dict.get("source2", "")
-                                except (ValueError, SyntaxError):
-                                    # Fallback to regex
-                                    source_match = re.search(r"'source2':\s*'([^']+)'", str(content))
-                                    source = source_match.group(1) if source_match else ""
-                                      
-                                if source:
-                                    source_name = source.split('\\')[-1] if '\\' in source else source.split('/')[-1]
-                                    
-                                    # Clean up the source name
-                                    clean_source_name = self._clean_source_name(source_name)
-                                    
-                                    # Get the Box URL for the source
-                                    box_url = self._get_box_url(source_name)
-                                    
-                                    sources.append(Source(
-                                        source_path=source, 
-                                        source_name=clean_source_name,
-                                        paper_url=box_url,
-                                        location="From knowledge graph",
-                                        why_it_supports="Contains relevant medical information about the topic in the query."
-                                    ))
-                                    print(f"Successfully extracted source: {clean_source_name}")
-                        except Exception as e:
-                            print(f"Error extracting source from vector retriever (with details): {e}, content type: {type(item.content)}")
-                            print(f"Content preview: {str(item.content)[:100]}...")
-                    else:
-                        # For VectorCypherRetriever and HybridCypherRetriever
-                        item_sources = self._extract_sources(item.content)
-                        sources.extend(item_sources)
-                
-                # Now enrich the sources with content
-                unique_sources = []
-                seen_sources = set()
-                
-                for source in sources:
-                    # Only process unique sources
-                    if source.source_name in seen_sources:
-                        continue
-                    
-                    seen_sources.add(source.source_name)
-                    
-                    # Find chunks that mention this source
-                    source_content = []
-                    source_name_parts = source.source_name.lower().split()
-                    source_path_parts = source.source_path.lower().split('\\')[-1].split('/')[-1].split()
-                    
-                    for chunk in all_chunks:
-                        chunk_lower = chunk.lower()
-                        # Check if chunk is associated with this source
-                        # Match by source name or path
-                        if any(part in chunk_lower for part in source_name_parts if len(part) > 3) or \
-                           any(part in chunk_lower for part in source_path_parts if len(part) > 3):
-                            # Extract a relevant section
-                            relevant_text = self._extract_relevant_section(chunk, source)
-                            if relevant_text and relevant_text not in source_content:
-                                source_content.append(relevant_text)
-                    
-                    # Add content to source (limit to first 2 most relevant chunks)
-                    if source_content:
-                        source.content = " ".join(source_content[:2])
-                        
-                        # Add more specific location information
-                        paper_name = source.source_name
-                        if paper_name:
-                            source.location = f"Medical literature: {paper_name}"
-                            
-                        # Generate a more specific why_it_supports based on content
-                        content_lower = source.content.lower()
-                        if "eoe" in content_lower or "eosinophilic esophagitis" in content_lower:
-                            source.why_it_supports = "Directly discusses EoE and its variants or treatments."
-                        elif "endotype" in content_lower or "variant" in content_lower:
-                            source.why_it_supports = "Describes specific disease variants or endotypes related to the query."
-                        elif "treatment" in content_lower or "therapy" in content_lower:
-                            source.why_it_supports = "Contains information about treatment approaches for the condition."
-                        elif "pathogenesis" in content_lower or "mechanism" in content_lower:
-                            source.why_it_supports = "Explains disease mechanisms or pathogenesis relevant to the query."
-                    
-                    unique_sources.append(source)
-                    
-                    # Limit to 5 sources
-                    if len(unique_sources) >= 5:
-                        break
-                
-                print(f"Query result: {answer[:100]}... with {len(unique_sources)} sources")
-                
-                # Format response based on requested format
-                if use_rag_format:
-                    return format_rag_response(answer, hc.items, retriever_type or os.getenv('RETRIEVER_TYPE', 'hybrid'))
-                else:
-                    return {
-                        "answer": answer,
-                        "sources": unique_sources
-                    }
-        except Exception as e:
-            print(f"Error during RAG search: {e}")
-            import traceback
-            traceback.print_exc()
-            error_message = "I don't have enough evidence in the current knowledge base to answer."
+                converted_sources.append(src_obj)
             
-            if use_rag_format:
-                return RagResponse(answer=error_message, sources=[])
-            else:
-                return {
-                    "answer": error_message,
-                    "sources": []
-                }
+            result["sources"] = converted_sources
+        
+        if use_rag_format:
+            # Convert to RagResponse format if needed
+            from app.rag.rag_assistant import format_rag_response
+            # Create dummy items for format_rag_response
+            items = []
+            for source_path in result.get("sources", []):
+                if hasattr(source_path, 'source_path'):
+                    source_path = source_path.source_path
+                class DummyItem:
+                    def __init__(self, path, content):
+                        self.content = f"chunk_sources='{path}' truncated_chunk_texts='{content}'"
+                content = result.get("source_contents", {}).get(source_path, "")
+                items.append(DummyItem(source_path, content))
+            
+            return format_rag_response(result["answer"], items, retriever_type or "hybrid")
+        
+        return result
 
     def _extract_relevant_section(self, chunk: str, source: Source) -> str:
         """Extract the most relevant section of a chunk for a particular source and topic."""

@@ -61,6 +61,8 @@ if [ ! -f /var/lib/neo4j/data/dbms/auth ]; then
     chmod 600 /var/lib/neo4j/data/dbms/auth
 fi
 
+# APOC procedures are already configured in the neo4j.conf file
+
 # Start Neo4j
 echo "Starting Neo4j..."
 exec neo4j console 

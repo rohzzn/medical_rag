@@ -19,7 +19,15 @@ from app.rag.retrievers import RagPipeline
 
 router = APIRouter()
 
-rag_pipeline = RagPipeline()
+# Initialize RAG pipeline lazily to avoid startup issues
+rag_pipeline = None
+
+def get_rag_pipeline():
+    global rag_pipeline
+    if rag_pipeline is None:
+        print("🔧 Initializing RAG pipeline...")
+        rag_pipeline = RagPipeline()
+    return rag_pipeline
 
 
 @router.get("/conversations", response_model=List[Conversation])
@@ -104,7 +112,8 @@ async def process_query(
     messages = crud.get_messages(db, conversation_id=conversation_id)
     
     # Process query with RAG pipeline, passing the retriever type
-    result = rag_pipeline.search(
+    pipeline = get_rag_pipeline()
+    result = pipeline.search(
         query_request.query, 
         messages,
         retriever_type=retriever_type
@@ -191,7 +200,8 @@ async def rag_assistant_query(
     messages = crud.get_messages(db, conversation_id=conversation_id)
     
     # Process query with RAG pipeline, passing the retriever type and use_rag_format=True
-    result = rag_pipeline.search(
+    pipeline = get_rag_pipeline()
+    result = pipeline.search(
         query_request.query, 
         messages,
         retriever_type=retriever_type,

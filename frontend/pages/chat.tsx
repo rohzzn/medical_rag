@@ -64,12 +64,14 @@ export default function Chat() {
     updateRetrieverType();
   }, [selectedRetriever]);
 
-  // Load conversation when conversation ID changes
+  // Load conversation when conversation ID changes (but not if we just created it)
+  const [justCreatedConversation, setJustCreatedConversation] = useState<number | null>(null);
+  
   useEffect(() => {
-    if (conversationId) {
+    if (conversationId && conversationId !== justCreatedConversation) {
       loadConversation(conversationId);
     }
-  }, [conversationId]);
+  }, [conversationId, justCreatedConversation]);
 
   const loadConversation = async (id: number) => {
     try {
@@ -114,9 +116,15 @@ export default function Chat() {
       const result = await queryApi.submitQuery(newMessage, conversationId || undefined, selectedRetriever);
       
       console.log("Received response:", result);
+      console.log("Sources in response:", result.sources);
+      console.log("Sources count:", result.sources?.length || 0);
+      if (result.sources && result.sources.length > 0) {
+        console.log("First source:", result.sources[0]);
+      }
       
-      // Set the conversation ID
-        setConversationId(result.conversation_id);
+      // Set the conversation ID and mark it as just created
+      setJustCreatedConversation(result.conversation_id);
+      setConversationId(result.conversation_id);
       
       // Add the response from the backend
       const assistantMessage: Message = {
@@ -124,7 +132,7 @@ export default function Chat() {
         role: 'assistant',
         content: result.answer,
         created_at: new Date().toISOString(),
-        sources: result.sources
+        sources: result.sources || []
       };
       
       setMessages(prev => [...prev, assistantMessage]);
@@ -160,6 +168,7 @@ export default function Chat() {
 
   const handleNewChat = () => {
     setConversationId(null);
+    setJustCreatedConversation(null);
     setMessages([]);
   };
 

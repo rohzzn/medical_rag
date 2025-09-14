@@ -28,7 +28,7 @@ declare module "next-auth/jwt" {
   }
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8002/api/v1';
 // For server-side API calls when running in Docker, we need to use the service name
 const SERVER_API_URL = process.env.SERVER_API_URL || 'http://backend:8000/api/v1';
 

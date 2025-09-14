@@ -3,6 +3,9 @@ FROM neo4j:5-enterprise
 # Install necessary tools
 RUN apt-get update && apt-get install -y curl wget
 
+# Download and install APOC plugin
+RUN curl -L https://github.com/neo4j/apoc/releases/download/5.20.0/apoc-5.20.0-core.jar -o /var/lib/neo4j/plugins/apoc-core.jar
+
 # Copy the neo4j dump file
 COPY neo4j_dump /import/neo4j_dump
 

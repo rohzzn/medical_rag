@@ -10,7 +10,16 @@ from app.schemas.query import QueryRequest, RagResponse
 from app.rag.retrievers import RagPipeline
 
 router = APIRouter()
-rag_pipeline = RagPipeline()
+
+# Initialize RAG pipeline lazily to avoid startup issues
+rag_pipeline = None
+
+def get_rag_pipeline():
+    global rag_pipeline
+    if rag_pipeline is None:
+        print("🔧 Initializing RAG pipeline...")
+        rag_pipeline = RagPipeline()
+    return rag_pipeline
 
 
 @router.post("/query", response_model=RagResponse)
@@ -69,7 +78,8 @@ async def neo4j_rag_query(
     messages = crud.get_messages(db, conversation_id=conversation_id)
     
     # Process query with RAG pipeline, passing the retriever type and use_rag_format=True
-    result = rag_pipeline.search(
+    pipeline = get_rag_pipeline()
+    result = pipeline.search(
         query_request.query, 
         messages,
         retriever_type=retriever_type,

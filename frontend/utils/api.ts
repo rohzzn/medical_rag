@@ -1,7 +1,7 @@
 import { getSession } from 'next-auth/react';
 
 // API base URL for client-side requests
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8002/api/v1';
 
 /**
  * Generic fetch function with authorization
